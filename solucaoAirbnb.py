@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 import pathlib
 
 meses = {'jan':1, 'fev':2, 'mar':3, 'abr':4, 'mai':5, 'jun':6,'jul':7, 'ago':8, 'set':9, 'out':10,'nov':11,'dez':12}
@@ -38,4 +39,28 @@ base_airbnb.head(1000).to_csv('primeiros_registros.csv',sep =';')
 colunas = ['host_response_rate','host_is_superhost','host_listings_count','latitude','longitude','is_location_exact','property_type','room_type','accommodates','bathrooms','bedrooms','beds','bed_type','amenities','price','security_deposit','cleaning_fee','guests_included','extra_people','minimum_nights','maximum_nights','number_of_reviews','review_scores_rating','review_scores_accuracy','review_scores_cleanliness','review_scores_checkin','review_scores_communication','review_scores_location','review_scores_value','instant_bookable','is_business_travel_ready','cancellation_policy','ano','mes']
 
 base_airbnb = base_airbnb.loc[:, colunas]
-print(base_airbnb)
+#print(base_airbnb)
+
+
+# tratar valores faltando
+# As colunas com mais de 300.000 valores NaN foram excluidas da analise, devido a grande disparidade em dados faltantes
+for coluna in base_airbnb:
+   if (base_airbnb[coluna].isnull().sum()) > 300000:
+       base_airbnb = base_airbnb.drop(coluna, axis=1)
+print(base_airbnb.isnull().sum())
+
+
+# exclui as linhas com valor NaN
+base_airbnb = base_airbnb.dropna()
+
+
+# preço e extra people estão sendo reconhecidos como objeto ao inves de float, portanto deve-se mudar o tipo de variavel da coluna
+#price
+base_airbnb['price'] = base_airbnb['price'].str.replace('$','')
+base_airbnb['price'] = base_airbnb['price'].str.replace(',','')
+base_airbnb['price'] = base_airbnb['price'].astype(np.float32, copy=False)
+
+# extra people
+base_airbnb['extra_people'] = base_airbnb['extra_people'].str.replace('$','')
+base_airbnb['extra_people'] = base_airbnb['extra_people'].str.replace(',','')
+base_airbnb['extra_people'] = base_airbnb['extra_people'].astype(np.float32, copy=False)
