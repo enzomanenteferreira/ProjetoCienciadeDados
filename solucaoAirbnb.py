@@ -117,9 +117,14 @@ print('{} linhas removidas'.format(linhas_removidas))
 
 # excluindo host linsing count porque hosts com mais de 6 imoveis no airbnb não eh o publico alvo
 # do objetivo do projeto
-base_airbnb, linhas_removidas = excluir_outliers(base_airbnb,'host_listing_count')
+base_airbnb, linhas_removidas = excluir_outliers(base_airbnb,'host_listings_count')
 print('{} linhas removidas'.format(linhas_removidas))
 
+base_airbnb, linhas_removidas = excluir_outliers(base_airbnb,'accommodates')
+print('{} linhas removidas'.format(linhas_removidas))
+
+base_airbnb, linhas_removidas = excluir_outliers(base_airbnb,'bathrooms')
+print('{} linhas removidas'.format(linhas_removidas))
 
 # chamar a função de diagrama de caixa
 #diagrama_caixa(base_airbnb['price'])
