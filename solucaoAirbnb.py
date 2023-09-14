@@ -1,6 +1,12 @@
 import pandas as pd
 import numpy as np
 import pathlib
+import seaborn as sns
+import matplotlib.pyplot as plt
+import time
+
+# cronometrar o tempo de execução do codigo
+start_time = time.time()
 
 meses = {'jan':1, 'fev':2, 'mar':3, 'abr':4, 'mai':5, 'jun':6,'jul':7, 'ago':8, 'set':9, 'out':10,'nov':11,'dez':12}
 
@@ -20,7 +26,7 @@ for arquivo in caminho_bases.iterdir():
 
         bases.append(df)
 
-base_airbnb = pd.concat(bases)
+base_airbnb = pd.concat(bases, ignore_index=True)
 #print(base_airbnb)
 
 #como temos muitas colunas, nosso modelo pode acabar ficando muito lento.
@@ -64,3 +70,66 @@ base_airbnb['price'] = base_airbnb['price'].astype(np.float32, copy=False)
 base_airbnb['extra_people'] = base_airbnb['extra_people'].str.replace('$','')
 base_airbnb['extra_people'] = base_airbnb['extra_people'].str.replace(',','')
 base_airbnb['extra_people'] = base_airbnb['extra_people'].astype(np.float32, copy=False)
+
+#print(base_airbnb.dtypes)
+
+
+#  plotar o grafico de correlação
+#plt.figure(figsize=(15,10))
+#sns.heatmap(base_airbnb.corr(numeric_only=True),annot = True,cmap='Greens')
+#plt.show()
+
+# Definição de funções para analise de outliers
+def limites(coluna):
+    q1 = coluna.quantile(0.25)
+    q3 = coluna.quantile(0.75)
+    amplitude = q3 - q1
+    return q1-1.5 * amplitude, q3 + 1.5 * amplitude
+
+def excluir_outliers(df,nome_coluna):
+    qntd_linhas = df.shape[0]
+    lim_inf, lim_sup = limites(df[nome_coluna])
+    df = df.loc[(df[nome_coluna] >= lim_inf) & (df[nome_coluna] <= lim_sup), :]
+    linhas_removidas = qntd_linhas - df.shape[0]
+    return df, linhas_removidas
+
+def diagrama_caixa(coluna):
+    fig, (ax1,ax2) = plt.subplots(1,2)
+    fig.set_size_inches(15,5)
+    sns.boxplot(x=coluna, ax=ax1)
+    ax2.set_xlim(limites(coluna))
+    sns.boxplot(x=coluna, ax=ax2)
+    plt.show()
+
+def histograma(coluna):
+    plt.figure(figsize=(15,5))
+    sns.distplot(coluna, hist=True)
+    plt.show()
+
+def grafico_barra(coluna):
+    plt.figure(figsize=(15,5))
+    ax = sns.barplot(x=coluna.value_count().index,y=coluna.value_counts())
+    ax.set_xlim(limites(coluna))
+
+# excluindo os valores da coluna com valores acima do limite superior 
+base_airbnb, linhas_removidas = excluir_outliers(base_airbnb,'price')
+print('{} linhas removidas'.format(linhas_removidas))
+
+# excluindo host linsing count porque hosts com mais de 6 imoveis no airbnb não eh o publico alvo
+# do objetivo do projeto
+base_airbnb, linhas_removidas = excluir_outliers(base_airbnb,'host_listing_count')
+print('{} linhas removidas'.format(linhas_removidas))
+
+
+# chamar a função de diagrama de caixa
+#diagrama_caixa(base_airbnb['price'])
+
+# chamar a função de histograma
+#histograma(base_airbnb['price'])
+
+ 
+
+
+
+
+print("Process finished --- %s seconds ---" % (time.time() - start_time))
