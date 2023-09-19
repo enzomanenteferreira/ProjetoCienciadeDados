@@ -1,10 +1,20 @@
+import sys
+#print(sys.executable)
+#print(sys.version)
+import warnings ## ignorar Futurewarnings de pacotes do python
+warnings.simplefilter(action='ignore', category=FutureWarning)
+
 import pandas as pd
 import numpy as np
 import pathlib
 import seaborn as sns
 import matplotlib.pyplot as plt
 import time
-import pl
+import plotly.express as px
+from sklearn.metrics import r2_score, mean_squared_error
+from sklearn.linear_model import LinearRegression
+from sklearn.ensemble import RandomForestRegressor, ExtraTreesRegressor
+from sklearn.model_selection import train_test_split
 
 # cronometrar o tempo de execução do codigo
 start_time = time.time()
@@ -73,8 +83,15 @@ base_airbnb['extra_people'] = base_airbnb['extra_people'].str.replace('$','')
 base_airbnb['extra_people'] = base_airbnb['extra_people'].str.replace(',','')
 base_airbnb['extra_people'] = base_airbnb['extra_people'].astype(np.float32, copy=False)
 
-#print(base_airbnb.dtypes)
+# security deposit
+base_airbnb['security_deposit'] = base_airbnb['security_deposit'].str.replace('$','')
+base_airbnb['security_deposit'] = base_airbnb['security_deposit'].str.replace(',','')
+base_airbnb['security_deposit'] = base_airbnb['security_deposit'].astype(np.float32, copy=False)
 
+# cleaning fee
+base_airbnb['cleaning_fee'] = base_airbnb['cleaning_fee'].str.replace('$','')
+base_airbnb['cleaning_fee'] = base_airbnb['cleaning_fee'].str.replace(',','')
+base_airbnb['cleaning_fee'] = base_airbnb['cleaning_fee'].astype(np.float32, copy=False)
 
 #  plotar o grafico de correlação
 #plt.figure(figsize=(15,10))
@@ -113,21 +130,23 @@ def grafico_barra(coluna):
     ax = sns.barplot(x=coluna.value_count().index,y=coluna.value_counts())
     ax.set_xlim(limites(coluna))
 
+
+
 # excluindo os valores da coluna com valores acima do limite superior 
 base_airbnb, linhas_removidas = excluir_outliers(base_airbnb,'price')
-print('{} linhas removidas'.format(linhas_removidas))
+#print('{} linhas removidas'.format(linhas_removidas))
  
 base_airbnb, linhas_removidas = excluir_outliers(base_airbnb,'host_listings_count')
-print('{} linhas removidas'.format(linhas_removidas))
+#print('{} linhas removidas'.format(linhas_removidas))
 
 base_airbnb, linhas_removidas = excluir_outliers(base_airbnb,'accommodates')
-print('{} linhas removidas'.format(linhas_removidas))
+#print('{} linhas removidas'.format(linhas_removidas))
 
 base_airbnb, linhas_removidas = excluir_outliers(base_airbnb,'bathrooms')
-print('{} linhas removidas'.format(linhas_removidas))
+#print('{} linhas removidas'.format(linhas_removidas))
 
 base_airbnb, linhas_removidas = excluir_outliers(base_airbnb,'minimum_nights')
-print('{} linhas removidas'.format(linhas_removidas))
+#print('{} linhas removidas'.format(linhas_removidas))
 
 # chamar a função de diagrama de caixa
 #diagrama_caixa(base_airbnb['price'])
@@ -141,15 +160,17 @@ print('{} linhas removidas'.format(linhas_removidas))
 base_airbnb = base_airbnb.drop('guests_included', axis = 1)
 base_airbnb = base_airbnb.drop('maximum_nights', axis = 1)
 base_airbnb = base_airbnb.drop('number_of_reviews', axis = 1)
-print(base_airbnb.shape)
+base_airbnb = base_airbnb.drop('host_response_time',axis=1)
+base_airbnb = base_airbnb.drop('host_response_rate',axis=1)
+#print(base_airbnb.shape)
 
 
 # tratamento colunas de valores texto
 #print(base_airbnb['property_type'].value_counts())
-plt.figure(figsize=(15,5))
-sns.set_theme(style = "whitegrid")
-grafico = sns.countplot(x=base_airbnb['property_type'])
-grafico.tick_params(axis='x',rotation=80)
+#plt.figure(figsize=(15,5))
+#sns.set_theme(style = "whitegrid")
+#grafico = sns.countplot(x=base_airbnb['property_type'])
+#grafico.tick_params(axis='x',rotation=80)
 #plt.show()
 
 tabela_tipos_casa = base_airbnb['property_type'].value_counts()
@@ -199,11 +220,70 @@ base_airbnb['n_amenities'] = base_airbnb['amenities'].str.split(',').apply(len)
 base_airbnb = base_airbnb.drop('amenities',axis=1)
 
 base_airbnb, linhas_removidas = excluir_outliers(base_airbnb,'n_amenities')
-print('{} linhas removidas'.format(linhas_removidas))
+#print('{} linhas removidas'.format(linhas_removidas))
+
+
+# Vizualização de mapa das propriedades
+amostra = base_airbnb.sample(n=50000)
+centro_mapa = {'lat':amostra.latitude.mean(), 'lon':amostra.longitude.mean()}
+fig = px.density_mapbox(amostra, lat='latitude', lon='longitude',z='price',radius=2.5,
+                        center=centro_mapa, zoom=10,
+                        mapbox_style='stamen-terrain')
+#fig.show()
 
 
 
+# Encoding - ajustar as features para facilitar o trabalho do modelo future
+# (features de categoria, true e false, etc)
 
+colunas_true_false = ['host_is_superhost', 'instant_bookable', 'is_business_travel_ready']
+base_airbnb_cod = base_airbnb.copy()
+
+for coluna in colunas_true_false:
+    base_airbnb_cod.loc[base_airbnb_cod[coluna]=='t',coluna]=1
+    base_airbnb_cod.loc[base_airbnb_cod[coluna]=='f',coluna]=0
+
+colunas_categorias = ['property_type','room_type','bed_type','cancellation_policy']
+
+base_airbnb_cod = pd.get_dummies(data=base_airbnb_cod, columns=colunas_categorias,dtype=int)
+#print(base_airbnb_cod.head())
+
+base_airbnb_cod.head(2000).to_csv('analisetestcod.csv',sep =';')
+
+# Modelo de Previsão
+# - Métricas de avaliação
+def avaliar_modelo(nome_modelo, y_teste, previsao):
+    r2 = r2_score(y_teste, previsao)
+    RSME = np.sqrt(mean_squared_error(y_teste,previsao))
+    return f'Modelo {nome_modelo}:\nR²:{r2}\nRSME:{RSME}'
+
+# -Escolha dos modelos a serem testados
+# 1. RandomForest
+# 2. LinearRegression
+# 3. ExtraTree
+
+modelo_random_forest = RandomForestRegressor()
+modelo_linear_regression = LinearRegression()
+modelo_extra_trees = ExtraTreesRegressor()
+
+modelos = {'RandomForest': modelo_random_forest,
+           'LinearRegression': modelo_linear_regression,
+           'ExtraTrees': modelo_extra_trees,
+           }
+
+
+y = base_airbnb_cod['price']
+x = base_airbnb_cod.drop('price',axis=1)
+
+# separar os dados em treino e teste + treino do modelo
+x_train, x_test, y_train, y_teste = train_test_split(x,y,random_state=10)
+
+for nome_modelo, modelo, in modelos.items():
+    #treinar
+    modelo.fit(x_train,y_train)
+    #testar
+    previsao = modelo.predict(x_test)
+    print(avaliar_modelo(nome_modelo,y_teste,previsao))
 
 
 print("Process finished --- %s seconds ---" % (time.time() - start_time))
