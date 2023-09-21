@@ -185,8 +185,6 @@ for tipo in colunas_agrupar:
     base_airbnb.loc[base_airbnb['property_type']==tipo,'property_type'] = 'Outros'
 
 
-#print(base_airbnb['room_type'].value_counts())
-#print(base_airbnb['bed_type'].value_counts())
 
 # agrupando categorias de bed_type
 tabela_bed_type = base_airbnb['bed_type'].value_counts()
@@ -235,7 +233,6 @@ fig = px.density_mapbox(amostra, lat='latitude', lon='longitude',z='price',radiu
 
 # Encoding - ajustar as features para facilitar o trabalho do modelo future
 # (features de categoria, true e false, etc)
-
 colunas_true_false = ['host_is_superhost', 'instant_bookable', 'is_business_travel_ready']
 base_airbnb_cod = base_airbnb.copy()
 
@@ -248,16 +245,15 @@ colunas_categorias = ['property_type','room_type','bed_type','cancellation_polic
 base_airbnb_cod = pd.get_dummies(data=base_airbnb_cod, columns=colunas_categorias,dtype=int)
 #print(base_airbnb_cod.head())
 
-base_airbnb_cod.head(2000).to_csv('analisetestcod.csv',sep =';')
 
 # Modelo de Previsão
 # - Métricas de avaliação
 def avaliar_modelo(nome_modelo, y_teste, previsao):
     r2 = r2_score(y_teste, previsao)
     RSME = np.sqrt(mean_squared_error(y_teste,previsao))
-    return f'Modelo {nome_modelo}:\nR²:{r2}\nRSME:{RSME}'
 
 # -Escolha dos modelos a serem testados
+    return f'\nModelo {nome_modelo}:\nR²:{r2:.2%}\nRSME:{RSME:.2f}'
 # 1. RandomForest
 # 2. LinearRegression
 # 3. ExtraTree
@@ -284,6 +280,39 @@ for nome_modelo, modelo, in modelos.items():
     #testar
     previsao = modelo.predict(x_test)
     print(avaliar_modelo(nome_modelo,y_teste,previsao))
+
+# Modelo escolhido como melhor modelo: ExtratreesRegressor
+# esse foi o modelo com maior valor de R² e ao mesmo tempo o menor valor de RSME
+
+# Ajustes e melhorias no melhor modelo
+#print(modelo_extra_trees.feature_importances_)
+importancia_features = pd.DataFrame(modelo_extra_trees.feature_importances_,x_train.columns)
+#print(importancia_features)
+
+## Ajustes finais no modelo
+# excluindo a feature is_busines_travel ready
+base_airbnb_cod = base_airbnb_cod.drop('is_business_travel_ready',axis=1)
+
+y = base_airbnb_cod['price']
+x = base_airbnb_cod.drop('price',axis=1)
+
+
+x_train, x_test, y_train, y_teste = train_test_split(x,y,random_state=10)
+
+#treinar
+modelo_extra_trees.fit(x_train,y_train)
+#testar
+previsao = modelo_extra_trees.predict(x_test)
+print(avaliar_modelo('ExtraTrees',y_teste,previsao))
+
+
+# DEPLOY Do Projeto
+x['price'] = y
+x.to_csv('dados.csv')
+
+import joblib
+joblib.dump(modelo_extra_trees,'modelo.joblib')
+
 
 
 print("Process finished --- %s seconds ---" % (time.time() - start_time))
