@@ -21,7 +21,7 @@ start_time = time.time()
 
 meses = {'jan':1, 'fev':2, 'mar':3, 'abr':4, 'mai':5, 'jun':6,'jul':7, 'ago':8, 'set':9, 'out':10,'nov':11,'dez':12}
 
-caminho_bases = pathlib.Path('datasets')
+caminho_bases = pathlib.Path('dataset')
 
 bases = []
 
@@ -38,7 +38,7 @@ for arquivo in caminho_bases.iterdir():
         bases.append(df)
 
 base_airbnb = pd.concat(bases, ignore_index=True)
-#print(base_airbnb)
+#print(base_airbnb.head)
 
 #como temos muitas colunas, nosso modelo pode acabar ficando muito lento.
 #alem disso, uma analise rapida permite ver que varias colunas não são necessarias para o nosso modelo de previsão.
@@ -50,7 +50,7 @@ base_airbnb = pd.concat(bases, ignore_index=True)
 
 # para isso, vamos criar um arquivo em excel com os 1000 primeiros registros e fazer uma analise qualitativa
 #print(list(base_airbnb.columns))
-base_airbnb.head(1000).to_csv('primeiros_registros.csv',sep =';')
+#base_airbnb.head(1000).to_csv('primeiros_registros.csv',sep =';')
 
 # Depois da analise qualitativa das colunas, levando em conta os criterios explicados acima, ficamos com as seguintes colunas
 colunas = ['host_response_time','host_response_rate','host_is_superhost','host_listings_count','latitude','longitude','property_type','room_type','accommodates','bathrooms','bedrooms','beds','bed_type','amenities','price','security_deposit','cleaning_fee','guests_included','extra_people','minimum_nights','maximum_nights','number_of_reviews','review_scores_rating','review_scores_accuracy','review_scores_cleanliness','review_scores_checkin','review_scores_communication','review_scores_location','review_scores_value','instant_bookable','is_business_travel_ready','cancellation_policy','ano','mes']
@@ -84,14 +84,14 @@ base_airbnb['extra_people'] = base_airbnb['extra_people'].str.replace(',','')
 base_airbnb['extra_people'] = base_airbnb['extra_people'].astype(np.float32, copy=False)
 
 # security deposit
-base_airbnb['security_deposit'] = base_airbnb['security_deposit'].str.replace('$','')
-base_airbnb['security_deposit'] = base_airbnb['security_deposit'].str.replace(',','')
-base_airbnb['security_deposit'] = base_airbnb['security_deposit'].astype(np.float32, copy=False)
+#base_airbnb['security_deposit'] = base_airbnb['security_deposit'].str.replace('$','')
+#base_airbnb['security_deposit'] = base_airbnb['security_deposit'].str.replace(',','')
+#base_airbnb['security_deposit'] = base_airbnb['security_deposit'].astype(np.float32, copy=False)
 
 # cleaning fee
-base_airbnb['cleaning_fee'] = base_airbnb['cleaning_fee'].str.replace('$','')
-base_airbnb['cleaning_fee'] = base_airbnb['cleaning_fee'].str.replace(',','')
-base_airbnb['cleaning_fee'] = base_airbnb['cleaning_fee'].astype(np.float32, copy=False)
+#base_airbnb['cleaning_fee'] = base_airbnb['cleaning_fee'].str.replace('$','')
+#base_airbnb['cleaning_fee'] = base_airbnb['cleaning_fee'].str.replace(',','')
+#base_airbnb['cleaning_fee'] = base_airbnb['cleaning_fee'].astype(np.float32, copy=False)
 
 #  plotar o grafico de correlação
 #plt.figure(figsize=(15,10))
@@ -160,8 +160,6 @@ base_airbnb, linhas_removidas = excluir_outliers(base_airbnb,'minimum_nights')
 base_airbnb = base_airbnb.drop('guests_included', axis = 1)
 base_airbnb = base_airbnb.drop('maximum_nights', axis = 1)
 base_airbnb = base_airbnb.drop('number_of_reviews', axis = 1)
-base_airbnb = base_airbnb.drop('host_response_time',axis=1)
-base_airbnb = base_airbnb.drop('host_response_rate',axis=1)
 #print(base_airbnb.shape)
 
 
@@ -268,6 +266,8 @@ modelos = {'RandomForest': modelo_random_forest,
            }
 
 
+print("aguarde enquanto o programa aprende com os dados fornecidos....")
+
 y = base_airbnb_cod['price']
 x = base_airbnb_cod.drop('price',axis=1)
 
@@ -289,22 +289,6 @@ for nome_modelo, modelo, in modelos.items():
 importancia_features = pd.DataFrame(modelo_extra_trees.feature_importances_,x_train.columns)
 #print(importancia_features)
 
-## Ajustes finais no modelo
-# excluindo a feature is_busines_travel ready
-base_airbnb_cod = base_airbnb_cod.drop('is_business_travel_ready',axis=1)
-
-y = base_airbnb_cod['price']
-x = base_airbnb_cod.drop('price',axis=1)
-
-
-x_train, x_test, y_train, y_teste = train_test_split(x,y,random_state=10)
-
-#treinar
-modelo_extra_trees.fit(x_train,y_train)
-#testar
-previsao = modelo_extra_trees.predict(x_test)
-print(avaliar_modelo('ExtraTrees',y_teste,previsao))
-
 
 # DEPLOY Do Projeto
 x['price'] = y
@@ -312,7 +296,6 @@ x.to_csv('dados.csv')
 
 import joblib
 joblib.dump(modelo_extra_trees,'modelo.joblib')
-
 
 
 print("Process finished --- %s seconds ---" % (time.time() - start_time))

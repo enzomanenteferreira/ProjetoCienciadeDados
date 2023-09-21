@@ -128,9 +128,9 @@ ENV/
 env.bak/
 venv.bak/
 my_venv/
-datasets/
-.csv
-.joblib
+dataset/
+dados.csv
+modelo.joblib
 
 # Spyder project settings
 .spyderproject

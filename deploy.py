@@ -2,16 +2,19 @@ import pandas as pd
 import streamlit as st
 import joblib
 
-modelo = joblib.load('modelo.joblib')
+dados = pd.read_csv("dados.csv")
+print(dados)
+print(dados.columns)
 
 x_numericos = {'latitude': 0, 'longitude': 0, 'accommodates': 0, 'bathrooms': 0, 'bedrooms': 0, 'beds': 0, 'extra_people': 0,
                'minimum_nights': 0, 'ano': 0, 'mes': 0, 'n_amenities': 0, 'host_listings_count': 0}
 
 x_true_false = {'host_is_superhost': 0, 'instant_bookable': 0}
 
-x_listas = {'property_type': ['Apartment', 'Bed and breakfast', 'Condominium', 'Guest suite', 'Guesthouse', 'Hostel', 'House', 'Loft', 'Outros', 'Serviced apartment'],
+x_listas = {'property_type': ['Apartment','Bed and breakfast', 'Condominium', 'Guest suite', 'Guesthouse', 'Hostel', 'House', 'Loft','Other', 'Outros', 'Serviced apartment'],
             'room_type': ['Entire home/apt', 'Hotel room', 'Private room', 'Shared room'],
-            'cancelation_policy': ['flexible', 'moderate', 'strict', 'strict_14_with_grace_period']
+            'bed_type': ['Outros','Real Bed'],
+            'cancellation_policy': ['flexible', 'moderate', 'strict', 'strict_14_with_grace_period']
             }
 
 dicionario = {}
@@ -38,6 +41,20 @@ for item in x_true_false:
 
 for item in x_listas:
     valor = st.selectbox(f'{item}', x_listas[item])
+    dicionario[f'{item}_{valor}'] = 1
 
 
 botao = st.button('Prever Valor do Imovel')
+
+if botao:
+    dicionario.update(x_numericos)
+    dicionario.update(x_true_false)
+    valores_x = pd.DataFrame(dicionario, index=[0])
+
+    dados = pd.read_csv("dados.csv")
+    colunas = list(dados.columns)[1:-1]
+
+    valores_x = valores_x[colunas]
+    modelo = joblib.load('modelo.joblib')
+    preco = modelo.predict(valores_x)
+    st.write("O preco do imóvel será de: ", preco[0])
